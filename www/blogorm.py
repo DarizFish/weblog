@@ -1,17 +1,19 @@
 import asyncio, logging
 import aiomysql
 
+logging.basicConfig(level=logging.INFO)
+
 def log(sql, args=()):
     logging.info('SQL: %s' % sql)
 
 async def create_pool(loop, **kw):
     logging.info('create database connection pool...')
     global __pool
-    _pool = await aiomysql.create_pool(
+    __pool = await aiomysql.create_pool(
         host=kw.get('host', 'localhost'),
         port=kw.get('port', 3306),
         user=kw['user'],
-        password=kw['Password'],
+        password=kw['password'],
         db=kw['db'],
         charset=kw.get('charset', 'utf8'),
         autocommit=kw.get('autocommit', True),
@@ -19,6 +21,9 @@ async def create_pool(loop, **kw):
         minsize=kw.get('minsize', 1),
         loop=loop
     )
+
+
+
 
 async def select(sql, args, size=None):
     log(sql, args)
@@ -36,7 +41,8 @@ async def select(sql, args, size=None):
 
 async def execute(sql, args, autocommit=True):
     log(sql)
-    async with __pool.get() as conn:
+    global __pool
+    async with __pool.acquire() as conn:
         if not autocommit:
             await conn.begin()
         try:
@@ -127,7 +133,7 @@ class ModelMetaclass(type):
         attrs['__mappings__'] = mappings
         attrs['__table__'] = tableName
         attrs['__primary_key__'] = primaryKey
-        attrs['__fileds__'] = fields
+        attrs['__fields__'] = fields
 
         attrs['__select__'] = 'select `%s`, %s from `%s`' % (primaryKey, ', '.join(escaped_fields), tableName)
         attrs['__insert__'] = 'insert into `%s` (%s, `%s`) values (%s)' % (
@@ -241,10 +247,21 @@ class User(Model):
     name = StringField('name')
     gender = StringField('gender')
     id = IntegerField('id', True, 0)
-    def __init__(self, id, name):
+    def __init__(self, id, name, gender):
         self.id = id
         self.name = name
+        self.gender = gender
 
 
-bob = User(1, 'bob')
+bob = User(1, 'bob', 'male')
 print(bob.__select__)
+
+
+async def test(loop):
+    await create_pool(user='root', password='Password', db='weblog', loop=loop, host='127.0.0.1')
+    await bob.save()
+    print('in test....')
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(test(loop))
+loop.run_forever()
