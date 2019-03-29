@@ -9,8 +9,8 @@ def log(sql, args=()):
 async def create_pool(loop, **kw):
     logging.info('create database connection pool...')
     global __pool
-    _pool = await aiomysql.create_pool(
-        host=kw.get('host', '192.168.31.58'),
+    __pool = await aiomysql.create_pool(
+        host=kw.get('host', 'localhost'),
         port=kw.get('port', 3306),
         user=kw['user'],
         password=kw['password'],
@@ -239,29 +239,29 @@ class Model(dict, metaclass=ModelMetaclass):
             logging.warnning('failed to remove by primary key: affected rows: %s' % rows)
 
 
+#test adding a bob to database
+if __name__ == '__main__':
+    class User(Model):
+        __table__ = 'users'
+
+        name = StringField('name')
+        gender = StringField('gender')
+        id = IntegerField('id', True, 0)
+        def __init__(self, id, name, gender):
+            self.id = id
+            self.name = name
+            self.gender = gender
 
 
-class User(Model):
-    __table__ = 'users'
-
-    name = StringField('name')
-    gender = StringField('gender')
-    id = IntegerField('id', True, 0)
-    def __init__(self, id, name, gender):
-        self.id = id
-        self.name = name
-        self.gender = gender
+    bob = User(1, 'bob', 'male')
+    print(bob.__select__)
 
 
-bob = User(1, 'bob', 'male')
-print(bob.__select__)
+    async def test(loop):
+        await create_pool(user='hphost', password='password', db='weblog', loop=loop, host='192.168.31.58')
+        await bob.save()
+        print('in test....')
 
-
-async def test(loop):
-    await create_pool(user='root', password='Password', db='weblog', loop=loop, host='127.0.0.1')
-    await bob.save()
-    print('in test....')
-
-loop = asyncio.get_event_loop()
-loop.run_until_complete(test(loop))
-loop.run_forever()
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(test(loop))
+    loop.run_forever()
