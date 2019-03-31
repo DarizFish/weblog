@@ -8,7 +8,7 @@ __author__ = 'zhaodada'
 import asyncio, logging
 import aiomysql
 
-logging.basicConfig(level=logging.ERROR)
+logging.basicConfig(level=logging.INFO)
 
 def log(sql, args=()):
     logging.info('SQL: %s' % sql)
@@ -28,7 +28,7 @@ async def create_pool(loop, **kw):
         minsize=kw.get('minsize', 1),
         loop=loop
     )
-
+    logging.info('create database connection pool successfully')
 
 
 
