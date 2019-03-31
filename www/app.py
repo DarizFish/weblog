@@ -8,10 +8,15 @@ from datetime import datetime
 from aiohttp import web
 from jinja2 import Environment, FileSystemLoader
 import blogorm
-from webframe import add_routes, add_static
+from webframe import *
+from models import *
 
-async def index(request):
-    return web.Response(content_type='text/html', body=b'<h1>Blog</h1>')
+
+# async def index(request):
+#     return web.Response(content_type='text/html', body=b'<h1>Blog</h1>')
+
+
+
 
 def init_jinja2(app, **kw):
     logging.info('init jinja2...')
@@ -105,19 +110,22 @@ def datetime_filter(t):
     return u'%s年%s月%s日' % (dt.year, dt.month, dt.day)
 
 async def init(loop):
-    await blogorm.create_pool(user='hphost', password='password', db='weblog', loop=loop, host='192.168.31.58')
+    await blogorm.create_pool(user='hphost', password='password', db='awesome', loop=loop, host='192.168.31.58')
+    admin = User(name='amdin', email='admin@admin.com', passwd='password', image='')
+    await admin.save()
     app = web.Application(middlewares=[logger_factory, response_factory])
     init_jinja2(app, filters=dict(datetime=datetime_filter))
     add_routes(app, 'handlers')
     add_static(app)
-    app.router.add_get('/', index)
+    # app.router.add_get('/', index)
     runner = web.AppRunner(app)
     await runner.setup()
 #    srv = await loop.create_server(runner, '127.0.0.1', 9009)
-    site = web.TCPSite(runner, '127.0.0.1', 9000)
+    site = web.TCPSite(runner, '192.168.31.74', 9000)
     await site.start()
     logging.info('server start at localhost')
     return site
+
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(init(loop))

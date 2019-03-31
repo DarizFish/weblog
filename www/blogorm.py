@@ -228,6 +228,7 @@ class Model(dict, metaclass=ModelMetaclass):
     async def save(self):
         args = list(map(self.getValueOrDefault, self.__fields__))
         args.append(self.getValueOrDefault(self.__primary_key__))
+        logging.info('save args: %s' % args)
         rows = await execute(self.__insert__, args)
         if rows != 1:
             logging.warnning('failed to insert record: affected rows: %s' % rows)
