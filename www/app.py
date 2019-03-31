@@ -111,8 +111,8 @@ def datetime_filter(t):
 
 async def init(loop):
     await blogorm.create_pool(user='hphost', password='password', db='awesome', loop=loop, host='192.168.31.58')
-    admin = User(name='amdin', email='admin@admin.com', passwd='password', image='')
-    await admin.save()
+    # admin = User(name='amdin', email='admin@admin.com', passwd='password', image='')
+    # await admin.save()
     app = web.Application(middlewares=[logger_factory, response_factory])
     init_jinja2(app, filters=dict(datetime=datetime_filter))
     add_routes(app, 'handlers')
