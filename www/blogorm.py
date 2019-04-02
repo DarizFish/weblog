@@ -8,7 +8,7 @@ __author__ = 'zhaodada'
 import asyncio, logging
 import aiomysql
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARNING)
 
 def log(sql, args=()):
     logging.info('SQL: %s' % sql)

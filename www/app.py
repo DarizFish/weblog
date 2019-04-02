@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 
-import logging; logging.basicConfig(level=logging.INFO)
+import logging; logging.basicConfig(level=logging.WARNING)
 import asyncio, os, json, time
 from datetime import datetime
 from aiohttp import web
@@ -10,7 +10,9 @@ from jinja2 import Environment, FileSystemLoader
 import blogorm
 from webframe import *
 from models import *
+import config
 
+from handlers import COOKIE_NAME, cookie2user
 
 # async def index(request):
 #     return web.Response(content_type='text/html', body=b'<h1>Blog</h1>')
@@ -43,8 +45,25 @@ def init_jinja2(app, **kw):
 async def logger_factory(app, handler):
     async def logger(request):
         logging.info('Request: %s %s' % (request.method, request.path))
+        print('logger')
         return (await handler(request))
     return logger
+
+@asyncio.coroutine
+def auth_factory(app, handler):
+    @asyncio.coroutine
+    def auth(request):
+        logging.info('check user: %s %s' % (request.method, request.path))
+        request.__user__ = None
+        cookie_str = request.cookies.get(COOKIE_NAME)
+        if cookie_str:
+            user = yield from cookie2user(cookie_str)
+            if user:
+                logging.info('set current user: %s' % user.email)
+                request.__user__ = user
+        return (yield from handler(request))
+    return auth
+
 
 async def data_factory(app, handler):
     async def parse_data(request):
@@ -60,6 +79,7 @@ async def data_factory(app, handler):
 
 async def response_factory(app, handler):
     async def response(request):
+        print('response')
         logging.info('Response handler...')
         r = await handler(request)
         if isinstance(r, web.StreamResponse):
@@ -76,11 +96,13 @@ async def response_factory(app, handler):
             return resp
         if isinstance(r, dict):
             template = r.get('__template__')
+
             if template is None:
                 resp = web.Response(body=json.dumps(r, ensure_ascii=False, default=lambda o: o.__dict__).encode('utf-8'))
                 resp.content_type = 'application/json;charset=utf-8'
                 return resp
             else:
+                r['__user__'] = request.__user__
                 resp = web.Response(body=app['__templating__'].get_template(template).render(**r).encode('utf-8'))
                 resp.content_type = 'text/html;charset=utf-8'
                 return resp
@@ -110,10 +132,11 @@ def datetime_filter(t):
     return u'%s年%s月%s日' % (dt.year, dt.month, dt.day)
 
 async def init(loop):
-    await blogorm.create_pool(user='hphost', password='password', db='awesome', loop=loop, host='192.168.31.58')
+    # await blogorm.create_pool(user='hphost', password='password', db='awesome', loop=loop, host='10.166.174.206')
+    await blogorm.create_pool(loop=loop, **config.configs['db'])
     # admin = User(name='amdin', email='admin@admin.com', passwd='password', image='')
     # await admin.save()
-    app = web.Application(middlewares=[logger_factory, response_factory])
+    app = web.Application(middlewares=[logger_factory, auth_factory, response_factory])
     init_jinja2(app, filters=dict(datetime=datetime_filter))
     add_routes(app, 'handlers')
     add_static(app)
@@ -121,11 +144,11 @@ async def init(loop):
     runner = web.AppRunner(app)
     await runner.setup()
 #    srv = await loop.create_server(runner, '127.0.0.1', 9009)
-    site = web.TCPSite(runner, '192.168.31.74', 9000)
+    site = web.TCPSite(runner, '127.0.0.1',
+9000)
     await site.start()
     logging.info('server start at localhost')
     return site
-
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(init(loop))

@@ -3,8 +3,6 @@
 
 import config_default
 
-configs = config_default.configs
-
 class Dict(dict):
 
     def __init__(self, names=(), values=(), **kw):
@@ -31,7 +29,7 @@ configs = config_default.configs
 
 try:
     import config_override
-    configs = merge(configs, config_override.configs)
+    # configs = merge(configs, config_override.configs)
     print(configs)
 except ImportError:
     pass
