@@ -11,15 +11,18 @@ COOKIE_NAME = 'webcookie'
 _COOKIE_KEY = 'webcookie'
 
 @get('/')
-def index(request):
-    summary = 'Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'
-    blogs = [
-        Blog(id='1', name='Test Blog', summary=summary, created_at=time.time()-120),
-        Blog(id='2', name='Something New', summary=summary, created_at=time.time()-3600),
-        Blog(id='3', name='Learn Swift', summary=summary, created_at=time.time()-7200)
-    ]
+async def index(*, page='1'):
+    page_index = get_page_index(page)
+    num = await Blog.findNumber('count(id)')
+    page = Page(num, 1, 2)
+    if num == 0:
+        blogs = []
+    else:
+        blogs = await Blog.findAll(orderBy='created_at desc', limit=(page.offset, page.limit))
+
     return {
         '__template__': 'blog.html',
+        'page': page,
         'blogs': blogs
     }
 
@@ -107,6 +110,14 @@ def manage_create_blog():
         'action': '/api/blogs'
     }
 
+@get('/manage/blogs/edit')
+def edit_blogs(*, id):
+    return {
+        '__template__': 'edit_blog.html',
+        'id': id,
+        'action': '/api/blogs/%s' % id
+    }
+
 @post('/api/blogs')
 @asyncio.coroutine
 def api_create_blog(request, *, name, summary, content):
@@ -138,6 +149,7 @@ def cookie2user(cookie_str):
         if int(expires) < time.time():
             return None
         user = yield from User.find(uid)
+        logging.info(user)
         if user is None:
             return None
         s = '%s-%s-%s-%s' % (uid, user.passwd, expires, _COOKIE_KEY)
@@ -176,6 +188,22 @@ async def api_get_blog(*, id):
     blog = await Blog.find(id)
     return blog
 
+@post('/api/blogs/{id}')
+async def api_update_blog(id, request, *, name, summary, content):
+    # check_admin(request)
+    blog = await Blog.find(id)
+    if not name or not name.strip():
+        raise APIValueError('name', 'name cannot be empty.')
+    if not summary or not summary.strip():
+        raise APIValueError('summary', 'summary cannot be empty.')
+    if not content or not content.strip():
+        raise APIValueError('content', 'content cannot be empty.')
+    blog.name = name.strip()
+    blog.summary = summary.strip()
+    blog.content = content.strip()
+    await blog.update()
+    return blog
+
 @get('/manage/blogs')
 def manage_blogs(*, page='1'):
     return {
@@ -203,6 +231,10 @@ def get_page_index(page_str):
     if p < 1:
         p = 1
     return p
+
+
+
+
 
 class Page(object):
 
